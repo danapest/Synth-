@@ -1,0 +1,12 @@
+{
+  "name": "draw-your-sound",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test tests/unit.test.mjs",
+    "test:e2e": "node tests/e2e.mjs",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": { "playwright": "^1.50.0" }
+}

@@ -1,111 +1,56 @@
-<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="theme-color" content="#08121e"><title>Draw Your Sound</title><style>
-:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif}*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#08121e;color:#eaf2fc}button,input,select{font:inherit}button{border:1px solid #40546c;background:#182b40;color:#eaf2fc;border-radius:11px;padding:10px 12px;touch-action:manipulation}button:active{background:#294660}.primary{background:#138cb8;border-color:#138cb8;font-weight:700}.app{height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);overflow:hidden}.top{display:flex;align-items:center;gap:7px;padding:8px 10px;background:#122235;flex:none}.top strong{flex:1;font-size:13px;letter-spacing:.04em}.top button{font-size:13px;padding:9px}.stage{flex:1;min-height:100px;position:relative;touch-action:none;overscroll-behavior:contain}canvas{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}.bottom{flex:none;background:#122235;padding:8px 12px 10px;display:grid;gap:7px}.bar{display:flex;align-items:center;justify-content:space-between;gap:10px}.sub{font-size:11px;color:#a7bfd3}.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}label{font-size:11px;color:#b9cad9}select,input[type=number]{display:block;width:100%;background:#1b3148;color:#fff;border:1px solid #3b526c;border-radius:8px;padding:7px;margin-top:3px}input[type=range]{width:100%;accent-color:#4be2ad}.drawer{position:absolute;bottom:0;left:0;right:0;z-index:3;background:#14273b;border-top:1px solid #40556d;border-radius:14px 14px 0 0;padding:13px;max-height:70%;overflow:auto;box-shadow:0 -10px 30px #0008}.drawer[hidden]{display:none}.sliderline{display:grid;grid-template-columns:90px 1fr 40px;gap:7px;align-items:center;font-size:12px}.sliderline input{min-width:0}.notice{font-size:11px;color:#9fb4c7}.equation{font-family:ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.6}.pill{padding:5px 9px;font-size:11px}.actions{display:flex;gap:6px}.actions button{flex:1}.hide{display:none!important}.piano{position:absolute;inset:0;background:#08121e;display:flex;flex-direction:column;min-height:0}.piano[hidden]{display:none}.pianotools{display:flex;gap:5px;align-items:center;padding:6px 7px;background:#122235;flex:none;overflow-x:auto}.pianotools button{padding:7px 9px;font-size:12px;white-space:nowrap}.pianotools button.selected{background:#147f9d;border-color:#57c5df}.pianotools select{width:74px;margin:0;padding:5px;font-size:12px}.pianosurface{flex:1;min-height:0;position:relative;overflow:hidden;touch-action:none}.pianosurface canvas{width:100%;height:100%;touch-action:none}</style></head><body>
-<div class="app"><header class="top"><strong>DRAW YOUR SOUND</strong><button id="viewtoggle">Piano Roll</button><button id="play" class="primary">▶ Play</button><button id="undo" aria-label="Скасувати">↶</button><button id="settings">⚙</button></header><main class="stage"><canvas id="canvas"></canvas><section id="piano" class="piano" hidden><div class="pianotools"><button id="pdraw" class="selected">✎ Draw</button><button id="pmove">↔ Move</button><button id="pcopy">⧉ Copy</button><button id="pdelete">⌫ Delete</button><span class="sub">Zoom</span><button id="zout">−</button><button id="zin">+</button><button id="octdown">↓ Oct</button><button id="octup">↑ Oct</button></div><div class="pianotools"><span class="sub">Snap</span><select id="psnap"><option value="16">1/16</option><option value="8" selected>1/8</option><option value="4">1/4</option><option value="0">Off</option></select><span class="sub" id="phelp">Draw: торкнися й тягни, щоб задати довжину</span></div><div class="pianotools"><span class="sub">Прокрутка часу</span><input id="ptime" type="range" min="0" max="100" value="0" style="flex:1;min-width:90px"></div><div class="pianosurface" id="psurface"><canvas id="pcanvas"></canvas></div></section><div id="drawer" class="drawer" hidden><div class="bar"><b>Звук і проєкт</b><button id="close">✕</button></div><div class="controls"><label>Пензель<select id="brush"><option value="lead">Lead</option><option value="bass">Sub bass</option><option value="pad">Atmosphere</option><option value="acid">Acid</option><option value="drum">Percussion</option></select></label><label>Пластика лінії<select id="shape"><option value="smooth">Плавна</option><option value="natural" selected>Природна</option><option value="sharp">Жорстка / ступені</option></select></label><label>Напрям малювання<select id="direction"><option value="both" selected>В обидва боки</option><option value="left">Справа наліво</option><option value="right">Зліва направо</option></select></label><label>Тембр<select id="wave"><option value="sawtooth">Analog saw</option><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option></select></label><label>Цикл<select id="duration"><option value="4">4 с</option><option value="8" selected>8 с</option><option value="16">16 с</option></select></label></div><div id="sliders"></div><label style="display:flex;align-items:center;gap:8px;margin:8px 0"><input type="checkbox" id="snap"> Привʼязка до нот (C minor)</label><p class="notice">Плавна — згладжує траєкторію; жорстка — робить частотні переходи ступінчастими. Лінії можна малювати в обидва боки. Під час Play можна додавати шари.</p><div class="actions"><button id="demo">Приклад</button><button id="clear">Очистити</button><button id="export">Експорт</button><button id="import">Імпорт</button></div><input id="file" type="file" accept="application/json,.json" hidden><p class="notice">Проєкт автоматично зберігається на цьому пристрої. Експорт створює резервну JSON-копію.</p><div class="equation" id="formula"></div></div></main><footer class="bottom"><div class="bar"><span class="sub" id="info">20 Гц — 16 кГц · 8 с</span><button class="pill" id="example">Приклад</button><button class="pill" id="erase">Очистити</button></div><div class="bar"><label for="volume">Гучність</label><input id="volume" type="range" min="0" max="35" value="15" style="flex:1"><span class="sub" id="vol-label">15%</span></div><span class="sub" id="status">X = фіксований час на сітці, незалежно від швидкості пальця. Малюй у будь-який бік.</span></footer></div>
-<script>
-(()=>{'use strict';const $=id=>document.getElementById(id),c=$('canvas'),g=c.getContext('2d');let lines=[],draft=null,pointer=null,ctx=null,master=null,comp=null,delay=null,wet=null,feedback=null,playing=false,started=0,scheduledCycle=0,interval=null,raf=0,voices=[];const colors=['#4be2ad','#73b9fa','#eab46a','#d49af2','#f58ba7','#e4d379'];const params={bass:65,drive:45,delay:25};let brushes=[],shapeModes=[],currentBrush="lead";let notes=[],pianoMode=false,pTool="draw",pZoom=1,pScroll=0,pSelected=-1,pDraft=null,pPointer=null,pOffset=0;const brushColors={lead:"#73b9fa",bass:"#4be2ad",pad:"#d49af2",acid:"#eab46a",drum:"#f58ba7"};const dur=()=>Number($('duration').value);const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const hz=y=>20*Math.pow(800,1-clamp(y,0,1));const fy=f=>1-Math.log(clamp(f,20,16000)/20)/Math.log(800);const db=()=>Math.max(0,Number($('volume').value)/100);const save=()=>{try{localStorage.setItem('drawsound-v1',JSON.stringify({lines,notes,brushes,shapeModes,brush:$('brush').value,shape:$('shape').value,direction:$('direction').value,snap:$('snap').checked,params,wave:$('wave').value,duration:dur(),volume:$('volume').value}));}catch(e){}};
-function load(){try{let o=JSON.parse(localStorage.getItem('drawsound-v1'));if(o&&Array.isArray(o.lines)){lines=o.lines.filter(l=>Array.isArray(l)&&l.length>=2).slice(0,80).map(l=>l.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>({x:clamp(p.x,0,1),y:clamp(p.y,0,1)}))).filter(l=>l.length>=2);notes=Array.isArray(o.notes)?o.notes.filter(n=>Number.isFinite(n.x)&&Number.isFinite(n.len)&&Number.isFinite(n.midi)).slice(0,500).map(n=>({x:clamp(n.x,0,1),len:clamp(n.len,.002,1),midi:clamp(Math.round(n.midi),24,108)})):[];brushes=Array.isArray(o.brushes)?o.brushes.slice(0,lines.length):lines.map(()=>"lead");shapeModes=Array.isArray(o.shapeModes)?o.shapeModes.slice(0,lines.length):lines.map(()=>"natural");if(o.brush)$('brush').value=o.brush;if(o.shape)$('shape').value=o.shape;if(o.direction)$('direction').value=o.direction;$('snap').checked=!!o.snap;Object.assign(params,o.params||{});if(['sine','triangle','square','sawtooth'].includes(o.wave))$('wave').value=o.wave;if([4,8,16].includes(o.duration))$('duration').value=o.duration;if(Number.isFinite(+o.volume))$('volume').value=clamp(+o.volume,0,35);}}catch(e){}}
-function resize(){const rect=c.getBoundingClientRect(),scale=Math.min(devicePixelRatio||1,2);c.width=Math.max(1,Math.round(rect.width*scale));c.height=Math.max(1,Math.round(rect.height*scale));draw();}
-function plotBounds(){const r=c.getBoundingClientRect();return{left:r.left+43,right:r.right-8,top:r.top+12,bottom:r.bottom-22}}function pos(e){const b=plotBounds();return{x:clamp((e.clientX-b.left)/Math.max(1,b.right-b.left),0,1),y:clamp((e.clientY-b.top)/Math.max(1,b.bottom-b.top),0,1)}}
-function draw(){let w=c.width,h=c.height,d=w/Math.max(c.clientWidth,1),L=43*d,R=w-8*d,T=12*d,B=h-22*d;g.fillStyle='#08121e';g.fillRect(0,0,w,h);g.font=11*d+'px system-ui';[16000,8000,4000,2000,1000,500,250,125,60,20].forEach(f=>{let y=T+fy(f)*(B-T);g.strokeStyle='#253b4c';g.lineWidth=d*.6;g.beginPath();g.moveTo(L,y);g.lineTo(R,y);g.stroke();g.textAlign='right';g.fillStyle='#94adbf';g.fillText(f>=1000?f/1000+'k':f,L-6*d,y+4*d)});for(let i=0;i<=8;i++){let x=L+(R-L)*i/8;g.strokeStyle='#203247';g.beginPath();g.moveTo(x,T);g.lineTo(x,B);g.stroke();g.textAlign='center';g.fillStyle='#94adbf';g.fillText((dur()*i/8).toFixed(0),x,h-5*d)}const path=(line,i)=>{if(!line.length)return;g.strokeStyle=brushColors[(i===lines.length?$('brush').value:brushes[i])]||colors[i%colors.length];g.lineWidth=3*d;g.lineJoin='round';g.lineCap='round';g.beginPath();line.forEach((p,j)=>{let x=L+p.x*(R-L),y=T+p.y*(B-T);j?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()};lines.forEach(path);if(draft)path(draft,lines.length);if(playing&&ctx){let t=((ctx.currentTime-started)%dur()+dur())%dur(),x=L+t/dur()*(R-L);g.strokeStyle='#fff1a0';g.lineWidth=2*d;g.beginPath();g.moveTo(x,T);g.lineTo(x,B);g.stroke()}$('info').textContent=lines.length+' доріжок · 20 Гц — 16 кГц · '+dur()+' с';}
-function equation(){let s='fᵢ(t) = 20 × 800^(1 − yᵢ(t))\nφᵢ(t) = 2π ∫₀ᵗ fᵢ(τ)dτ\ns(t) = Σᵢ Aᵢ(t) · osc(φᵢ(t))\n';lines.slice(0,8).forEach((l,i)=>{let a=l[0],b=l[l.length-1];s+='L'+(i+1)+': '+hz(a.y).toFixed(1)+' → '+hz(b.y).toFixed(1)+' Гц; '+(a.x*dur()).toFixed(2)+'–'+(b.x*dur()).toFixed(2)+' с\n'});$('formula').textContent=s;}
-function changed(){save();equation();draw();drawPiano();}
-function shapeLine(raw,mode){
- let arr=raw.slice().sort((a,b)=>a.x-b.x),out=[];
- for(let p of arr){if(out.length&&Math.abs(p.x-out[out.length-1].x)<.0002){out[out.length-1]={x:p.x,y:(out[out.length-1].y+p.y)/2};}else out.push({...p});}
- if(out.length<2)return out;
- // Resample the path in TIME, not drawing direction, to ensure monotonic audio automation.
- const count=Math.min(480,Math.max(32,Math.ceil((out[out.length-1].x-out[0].x)*320))),sample=[];
- for(let i=0;i<=count;i++){let x=out[0].x+(out[out.length-1].x-out[0].x)*i/count,j=1;while(j<out.length-1&&out[j].x<x)j++;let a=out[j-1],b=out[j],q=clamp((x-a.x)/Math.max(.00001,b.x-a.x),0,1);sample.push({x,y:a.y+(b.y-a.y)*q})}
- if(mode==='smooth'){let y=sample.map(p=>p.y);for(let pass=0;pass<3;pass++){y=y.map((v,i)=>{let sum=0,weight=0;for(let k=-6;k<=6;k++){let z=clamp(i+k,0,y.length-1),w=7-Math.abs(k);sum+=y[z]*w;weight+=w}return sum/weight})}return sample.map((p,i)=>({x:p.x,y:clamp(y[i],0,1)}))}
- if(mode==='sharp'){return sample.map((p,i)=>({x:p.x,y:clamp(Math.round(p.y*24)/24,0,1)}))}
- return sample;
-}
-function quantize(line){if(!$('snap').checked)return line;const notes=[0,2,3,5,7,8,10];return line.map(p=>{let midi=69+12*Math.log2(hz(p.y)/440),best=midi,dist=1e9;for(let n=18;n<=132;n++){if(notes.includes((n%12+12)%12)&&Math.abs(n-midi)<dist){best=n;dist=Math.abs(n-midi)}}return {...p,y:fy(440*Math.pow(2,(best-69)/12))}})}
-function commitStroke(){if(draft&&draft.length>1){let mode=$('shape').value,prepared=quantize(shapeLine(draft,mode));if(prepared.length>1){lines.push(prepared);brushes.push($('brush').value);shapeModes.push(mode);changed();if(playing&&ctx){let base=started+Math.max(0,Math.floor((ctx.currentTime-started)/dur()))*dur();voice(prepared,base,brushes[brushes.length-1],mode);}}}draft=null;draw()}
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Draw Sound">
+<meta name="theme-color" content="#08121e">
+<meta name="description" content="Draw Your Sound — малюйте звук: частотне полотно, Piano Roll і драм-секвенсор в одному інструменті.">
+<title>Draw Your Sound</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <button id="btnMenu" class="icon" aria-label="Проєкти та експорт">≡</button>
+    <button id="projName" class="name" aria-label="Назва проєкту">Проєкт</button>
+    <span id="saveState" class="savestate" title="Помилка збереження"></span>
+    <span class="spacer"></span>
+    <button id="btnUndo" class="icon" aria-label="Скасувати" title="Скасувати (⌘Z)" disabled>↶</button>
+    <button id="btnRedo" class="icon" aria-label="Повернути" title="Повернути (⇧⌘Z)" disabled>↷</button>
+    <button id="btnBpm" class="bpm" aria-label="Темп і лад"><b id="bpmVal">120</b><small>BPM</small></button>
+    <button id="btnPlay" class="play" aria-label="Грати" title="Грати / стоп (Пробіл)">▶</button>
+  </header>
+  <nav id="views" role="tablist" aria-label="Режими"></nav>
+  <div id="trackbar" aria-label="Доріжки"></div>
+  <main id="stage">
+    <section data-view="draw"><canvas id="cvDraw" aria-label="Частотне полотно"></canvas></section>
+    <section data-view="notes" hidden><canvas id="cvNotes" aria-label="Piano Roll"></canvas></section>
+    <section data-view="drums" id="drumView" hidden></section>
+    <section data-view="mix" id="mixView" hidden></section>
+  </main>
+  <footer id="bottom">
+    <div id="toolbar" role="toolbar"></div>
+    <div id="status" aria-live="polite"></div>
+  </footer>
+</div>
 
-c.addEventListener('pointerdown',e=>{if(pointer!==null||!e.isPrimary)return;e.preventDefault();pointer=e.pointerId;c.setPointerCapture(pointer);draft=[pos(e)];draw()});c.addEventListener('pointermove',e=>{if(pointer!==e.pointerId||!draft)return;e.preventDefault();let p=pos(e),last=draft[draft.length-1];let direction=$('direction').value;if(direction==='right')p.x=Math.max(last.x,p.x);if(direction==='left')p.x=Math.min(last.x,p.x);if(Math.abs(p.x-last.x)>.001||Math.abs(p.y-last.y)>.004){draft.push(p);draw()}});c.addEventListener('pointerup',e=>{if(pointer!==e.pointerId)return;pointer=null;commitStroke()});c.addEventListener('pointercancel',()=>{pointer=null;draft=null;draw()});
-function audio(){if(ctx)return true;const A=window.AudioContext||window.webkitAudioContext;if(!A){$('status').textContent='Цей браузер не підтримує Web Audio';return false}ctx=new A();master=ctx.createGain();master.gain.value=db();comp=ctx.createDynamicsCompressor();comp.threshold.value=-19;comp.ratio.value=10;comp.attack.value=.003;comp.release.value=.15;master.connect(comp);comp.connect(ctx.destination);delay=ctx.createDelay(1);delay.delayTime.value=.27;feedback=ctx.createGain();feedback.gain.value=.24;wet=ctx.createGain();wet.gain.value=params.delay/200;master.connect(delay);delay.connect(feedback);feedback.connect(delay);delay.connect(wet);wet.connect(comp);return true}
-function voice(line,base,brush='lead',mode='natural'){if(line.length<2)return;let begin=base+line[0].x*dur(),end=base+line[line.length-1].x*dur();if(end<=ctx.currentTime+.01)return;let now=Math.max(ctx.currentTime+.006,begin);let osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=brush==='bass'?'sine':brush==='pad'?'triangle':brush==='acid'?'sawtooth':brush==='drum'?'triangle':$('wave').value;let f0=hz(line[0].y);osc.frequency.setValueAtTime(f0,now);let bass=brush==='bass'||f0<180;let amp=(brush==='pad'?.09:brush==='bass'?.24:brush==='drum'?.20:.12)*(1+params.drive/250)/Math.sqrt(Math.max(1,lines.length));gain.gain.setValueAtTime(.0001,now);let attack=Math.min(brush==='pad'?.35:brush==='drum'?.003:.02,Math.max(.003,(end-now)/4));gain.gain.linearRampToValueAtTime(amp,now+attack);gain.gain.setValueAtTime(amp,Math.max(now+attack+.001,end-.045));gain.gain.exponentialRampToValueAtTime(.0001,end+.03);let prev=line[0];for(let i=1;i<line.length;i++){let p=line[i];if(base+p.x*dur()>now){let before=base+prev.x*dur();if(before<=now){let alpha=clamp((now-before)/Math.max(.00001,(p.x-prev.x)*dur()),0,1);let y=prev.y+(p.y-prev.y)*alpha;osc.frequency.setValueAtTime(hz(y),now)}break}prev=p}if(line.length===1||base+line[line.length-1].x*dur()<=now)osc.frequency.setValueAtTime(hz(prev.y),now);line.forEach(p=>{let t=base+p.x*dur();if(t>now+.001){if(brush==='drum')osc.frequency.exponentialRampToValueAtTime(Math.max(30,hz(p.y)*.6),t);else if(mode==='sharp'||brush==='acid')osc.frequency.setValueAtTime(hz(p.y),t);else osc.frequency.linearRampToValueAtTime(hz(p.y),t)}});osc.connect(gain);gain.connect(master);osc.start(now);osc.stop(end+.04);voices.push(osc);osc.onended=()=>{voices=voices.filter(v=>v!==osc);osc.disconnect();gain.disconnect()}}
-function schedule(){if(!playing)return;let cycle=Math.floor((ctx.currentTime-started+.1)/dur());while(scheduledCycle<=cycle){let base=started+scheduledCycle*dur();lines.forEach((l,i)=>voice(l,base,brushes[i]||'lead',shapeModes[i]||'natural'));notes.forEach(n=>noteVoice(n,base));scheduledCycle++}}
-function animate(){if(!playing)return;draw();if(pianoMode)drawPiano();raf=requestAnimationFrame(animate)}
-function stop(){playing=false;clearInterval(interval);cancelAnimationFrame(raf);voices.forEach(o=>{try{o.stop()}catch(e){}});voices=[];$('play').textContent='▶ Play';draw()}
-$('play').onclick=async()=>{if(playing){stop();return}if(!audio())return;try{await ctx.resume();playing=true;started=ctx.currentTime+.06;scheduledCycle=0;interval=setInterval(schedule,25);$('play').textContent='■ Stop';animate()}catch(e){$('status').textContent='Не вдалося запустити аудіо: '+e.message}};
-$('undo').onclick=()=>{if(pianoMode){undoPiano();return}lines.pop();brushes.pop();shapeModes.pop();changed()};function clear(){if(!confirm('Очистити всі доріжки та ноти?'))return;stop();rememberPiano();lines=[];notes=[];brushes=[];shapeModes=[];pSelected=-1;changed()}$('erase').onclick=clear;$('clear').onclick=clear;
-function demo(){stop();lines=[[[0,55],[.2,55],[.24,82],[.48,82],[.52,55],[.75,55],[.96,110]],[[.08,220],[.28,330],[.52,440],[.75,660],[.96,440]],[[.1,880],[.35,1760],[.7,1320],[.95,3520]]].map(l=>l.map(([x,f])=>({x,y:fy(f)})));brushes=['bass','lead','pad'];shapeModes=['natural','natural','natural'];changed();$('drawer').hidden=true} $('example').onclick=demo;$('demo').onclick=demo;
-$('settings').onclick=()=>{$('drawer').hidden=!$('drawer').hidden};$('close').onclick=()=>{$('drawer').hidden=true};$('duration').onchange=()=>{stop();changed()};$('wave').onchange=save;['brush','shape','direction','snap'].forEach(id=>$(id).onchange=save);$('volume').oninput=()=>{$('vol-label').textContent=$('volume').value+'%';if(ctx)master.gain.setTargetAtTime(db(),ctx.currentTime,.02);save()};
-const sliders=$('sliders');[['bass','Глибина басу'],['drive','Насичення'],['delay','Delay']].forEach(([k,name])=>{let row=document.createElement('div');row.className='sliderline';row.innerHTML='<span>'+name+'</span><input type="range" min="0" max="100" value="'+params[k]+'"><span>'+params[k]+'%</span>';sliders.appendChild(row);let input=row.querySelector('input');input.oninput=()=>{params[k]=+input.value;row.lastElementChild.textContent=params[k]+'%';if(k==='delay'&&ctx)wet.gain.setTargetAtTime(params[k]/200,ctx.currentTime,.02);save()}});
-$('export').onclick=()=>{let data=JSON.stringify({version:3,lines,notes,brushes,shapeModes,brush:$('brush').value,shape:$('shape').value,direction:$('direction').value,snap:$('snap').checked,params,wave:$('wave').value,duration:dur(),volume:+$('volume').value},null,2);let url=URL.createObjectURL(new Blob([data],{type:'application/json'}));let a=document.createElement('a');a.href=url;a.download='draw-your-sound.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let o=JSON.parse(await f.text());if(!Array.isArray(o.lines))throw Error('Некоректний формат');stop();rememberPiano();lines=o.lines.slice(0,80).map(l=>l.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>({x:clamp(p.x,0,1),y:clamp(p.y,0,1)})).sort((a,b)=>a.x-b.x)).filter(l=>l.length>1);notes=Array.isArray(o.notes)?o.notes.filter(n=>Number.isFinite(n.x)&&Number.isFinite(n.len)&&Number.isFinite(n.midi)).slice(0,500).map(n=>({x:clamp(n.x,0,1),len:clamp(n.len,.002,1),midi:clamp(Math.round(n.midi),24,108)})):[];brushes=Array.isArray(o.brushes)?o.brushes.slice(0,lines.length):lines.map(()=>'lead');shapeModes=Array.isArray(o.shapeModes)?o.shapeModes.slice(0,lines.length):lines.map(()=>'natural');changed();$('drawer').hidden=true}catch(err){$('status').textContent='Помилка імпорту: '+err.message}e.target.value=''};
-
-
-const pc=$('pcanvas'),pg=pc.getContext('2d'),rowH=28,loMidi=24,hiMidi=108;
-let pianoHistory=[],pDrag=null,pCopy=null,pScrollBase=48;
-const cloneNotes=()=>notes.map(n=>({...n}));
-function rememberPiano(){pianoHistory.push(cloneNotes());if(pianoHistory.length>70)pianoHistory.shift()}
-function undoPiano(){if(!pianoHistory.length){$('status').textContent='Немає змін Piano Roll для скасування';return}notes=pianoHistory.pop();pSelected=-1;pCopy=null;changed()}
-function pSize(){let r=pc.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);pc.width=Math.max(1,Math.round(r.width*d));pc.height=Math.max(1,Math.round(r.height*d));drawPiano()}
-function pGeometry(){let r=pc.getBoundingClientRect(),w=r.width,h=r.height,rows=Math.max(1,Math.ceil(h/rowH));return{w,h,left:48,rows,scale:Math.max(1,w-48)*pZoom/dur(),offset:pOffset,base:pScrollBase}}
-function pXY(n,b){return{x:b.left+(n.x*dur()-b.offset)*b.scale,y:(b.base+b.rows-1-n.midi)*rowH,w:n.len*dur()*b.scale}}
-function pGrid(){let k=+$('psnap').value;return k?(2/k)/dur():0}
-function pSnap(x){let step=pGrid();return clamp(step?Math.round(x/step)*step:x,0,1)}
-function pMinLen(){return pGrid()||.0125}
-function drawPiano(){
- if(!pianoMode)return;
- let b=pGeometry(),d=pc.width/Math.max(1,b.w);pg.setTransform(d,0,0,d,0,0);pg.clearRect(0,0,b.w,b.h);pg.fillStyle='#08121e';pg.fillRect(0,0,b.w,b.h);
- pg.font='12px system-ui';
- for(let midi=b.base;midi<b.base+b.rows;midi++){let y=(b.base+b.rows-1-midi)*rowH;if(y>=b.h||y+rowH<=0)continue;
- let black=[1,3,6,8,10].includes(midi%12);pg.fillStyle=midi%12===0?'#253e54':black?'#101d2b':'#192d3f';pg.fillRect(0,y,b.w,rowH-1);
- pg.fillStyle='#c0d2df';if(midi%12===0)pg.fillText('C'+(Math.floor(midi/12)-1),5,y+18);
- }
- let step=pGrid()||1/32;
- for(let k=0;k<=Math.ceil(1/step);k++){let t=k*step*dur(),x=b.left+(t-b.offset)*b.scale;if(x>b.w)break;if(x<b.left)continue;pg.strokeStyle=k%4===0?'#678095':'#2b4356';pg.lineWidth=k%4===0?1.1:.6;pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,b.h);pg.stroke()}
- pg.save();pg.beginPath();pg.rect(b.left,0,Math.max(0,b.w-b.left),b.h);pg.clip();
- notes.forEach((n,i)=>{let q=pXY(n,b);if(q.x+q.w<b.left||q.x>b.w||q.y+rowH<0||q.y>b.h)return;
- pg.fillStyle=i===pSelected?'#ffcb80':'#51d1b5';pg.fillRect(q.x,q.y+2,Math.max(3,q.w-1),rowH-4);
- pg.fillStyle='#12303b';pg.fillRect(q.x+Math.max(0,q.w-7),q.y+5,Math.min(4,q.w),rowH-10);
- pg.fillStyle='#102d35';if(q.w>32)pg.fillText(['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n.midi%12],q.x+5,q.y+18)});
- if(pDraft){let q=pXY(pDraft,b);pg.fillStyle='#83b7ffbb';pg.fillRect(q.x,q.y+2,Math.max(4,q.w),rowH-4)}
- if(playing&&ctx){let t=((ctx.currentTime-started)%dur()+dur())%dur(),x=b.left+(t-b.offset)*b.scale;pg.strokeStyle='#ffe7a0';pg.lineWidth=2;pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,b.h);pg.stroke()}
- pg.restore();
- pg.fillStyle='#13283a';pg.fillRect(0,0,b.left,b.h);
- for(let midi=b.base;midi<b.base+b.rows;midi++){let y=(b.base+b.rows-1-midi)*rowH;pg.fillStyle=[1,3,6,8,10].includes(midi%12)?'#223449':'#40556a';pg.fillRect(0,y,b.left-2,rowH-1);pg.fillStyle='#f1f5fa';pg.font='11px system-ui';pg.fillText(['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][midi%12]+(Math.floor(midi/12)-1),4,y+18)}
-}
-function pPoint(e){let b=pGeometry(),r=pc.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;return{px,py,x:clamp(((px-b.left)/b.scale+b.offset)/dur(),0,1),midi:clamp(Math.floor(b.base+b.rows-1-py/rowH),loMidi,hiMidi)}}
-function pHit(p){let b=pGeometry(),best=-1,score=Infinity;for(let i=notes.length-1;i>=0;i--){let q=pXY(notes[i],b),dx=Math.max(q.x-p.px,0,p.px-(q.x+Math.max(q.w,8))),dy=Math.max(q.y+2-p.py,0,p.py-(q.y+rowH-2)),dist=Math.hypot(dx,dy);if(dist<score&&dist<=(pTool==='draw'?7:15)){score=dist;best=i}}return best}
-function pMode(v){pTool=v;pCopy=null;for(let [id,k] of [['pdraw','draw'],['pmove','move'],['pcopy','copy'],['pdelete','delete']])$(id).classList.toggle('selected',k===v);$('phelp').textContent={draw:'Порожнє місце: нова нота · нота: перемісти · край: довжина',move:'Перетягни ноту в інше місце',copy:'Торкнися ноти, потім місця для копії',delete:'Торкнися ноти для видалення'}[v]}
-pc.addEventListener('pointerdown',e=>{
- if(pPointer!==null||!e.isPrimary)return;let p=pPoint(e),b=pGeometry();if(p.px<b.left)return;
- e.preventDefault();pPointer=e.pointerId;try{pc.setPointerCapture(pPointer)}catch(_){}
- let i=pHit(p);
- if(pTool==='copy'){if(i>=0){pCopy={...notes[i]};pSelected=i;$('phelp').textContent='Торкнися порожнього місця для копії'}else if(pCopy){rememberPiano();notes.push({...pCopy,x:clamp(pSnap(p.x),0,1-pCopy.len),midi:p.midi});pSelected=notes.length-1;changed()}drawPiano();return}
- if(pTool==='delete'){if(i>=0){rememberPiano();notes.splice(i,1);pSelected=-1;changed()}return}
- if(i>=0){pSelected=i;let n=notes[i],q=pXY(n,b),edge=Math.max(8,Math.min(14,q.w*.22)),resize=pTool==='draw'&&q.w>=24&&p.px>=q.x+q.w-edge;
- rememberPiano();pDrag=resize?{kind:'resize',i}:{kind:'move',i,dx:p.x-n.x,dm:p.midi-n.midi};}
- else if(pTool==='draw'){rememberPiano();pSelected=-1;let x=pSnap(p.x);pDraft={x:clamp(x,0,1-pMinLen()),len:pMinLen(),midi:p.midi};pDrag={kind:'draw',start:x}}
- drawPiano()
-});
-pc.addEventListener('pointermove',e=>{if(pPointer!==e.pointerId||!pDrag)return;e.preventDefault();let p=pPoint(e);
- if(pDrag.kind==='draw'){let x=pSnap(p.x),start=pDrag.start,lo=Math.min(start,x),hi=Math.max(start,x);pDraft.x=clamp(lo,0,1-pMinLen());pDraft.len=clamp(Math.max(pMinLen(),hi-lo),pMinLen(),1-pDraft.x)}
- else if(pDrag.kind==='move'){let n=notes[pDrag.i];n.x=clamp(pSnap(p.x-pDrag.dx),0,1-n.len);n.midi=clamp(p.midi-pDrag.dm,loMidi,hiMidi)}
- else if(pDrag.kind==='resize'){let n=notes[pDrag.i];n.len=clamp(Math.max(pMinLen(),pSnap(p.x)-n.x),pMinLen(),1-n.x)}
- drawPiano()
-});
-function pEnd(e){if(pPointer!==e.pointerId)return;pPointer=null;if(pDraft){notes.push({...pDraft});pSelected=notes.length-1;pDraft=null}pDrag=null;changed()}
-pc.addEventListener('pointerup',pEnd);pc.addEventListener('pointercancel',e=>{if(pPointer!==e.pointerId)return;pPointer=null;let edited=!!pDrag;pDraft=null;pDrag=null;if(edited)undoPiano();else drawPiano()});
-$('viewtoggle').onclick=()=>{pianoMode=!pianoMode;$('piano').hidden=!pianoMode;c.style.visibility=pianoMode?'hidden':'visible';$('viewtoggle').textContent=pianoMode?'Canvas':'Piano Roll';$('drawer').hidden=true;if(pianoMode)requestAnimationFrame(pSize);else draw()};
-[['pdraw','draw'],['pmove','move'],['pcopy','copy'],['pdelete','delete']].forEach(([id,k])=>$(id).onclick=()=>pMode(k));
-function setZoom(z){pZoom=clamp(z,1,16);pOffset=Math.min(pOffset,dur()*(1-1/pZoom));$('ptime').value=100*pOffset/Math.max(.001,dur()*(1-1/pZoom));drawPiano()}
-$('zin').onclick=()=>setZoom(pZoom*2);$('zout').onclick=()=>setZoom(pZoom/2);
-$('ptime').oninput=()=>{pOffset=(+$('ptime').value/100)*dur()*(1-1/pZoom);drawPiano()};
-$('octup').onclick=()=>{pScrollBase=clamp(pScrollBase+12,loMidi,hiMidi-12);drawPiano()};
-$('octdown').onclick=()=>{pScrollBase=clamp(pScrollBase-12,loMidi,hiMidi-12);drawPiano()};
-$('psnap').onchange=drawPiano;
-pc.addEventListener('wheel',e=>{if(!pianoMode)return;e.preventDefault();if(e.ctrlKey||e.metaKey){setZoom(pZoom*(e.deltaY<0?1.25:.8))}else if(e.shiftKey){pOffset=clamp(pOffset+e.deltaY/bScale(),0,dur()*(1-1/pZoom));$('ptime').value=100*pOffset/Math.max(.001,dur()*(1-1/pZoom));drawPiano()}else{pScrollBase=clamp(pScrollBase+(e.deltaY>0?-1:1),loMidi,hiMidi-12);drawPiano()}},{passive:false});
-function bScale(){return pGeometry().scale}
-document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();if(pianoMode)undoPiano();else $('undo').click()}else if(pianoMode&&(e.key==='Delete'||e.key==='Backspace')&&pSelected>=0){e.preventDefault();rememberPiano();notes.splice(pSelected,1);pSelected=-1;changed()}});
-function noteVoice(n,base){let start=base+n.x*dur(),end=base+(n.x+n.len)*dur();if(end<=ctx.currentTime+.01)return;let now=Math.max(ctx.currentTime+.006,start),osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=$('wave').value;osc.frequency.value=440*Math.pow(2,(n.midi-69)/12);let amp=.13/Math.sqrt(Math.max(1,notes.length)),attack=Math.min(.008,Math.max(.001,(end-now)/3));gain.gain.setValueAtTime(.0001,now);gain.gain.linearRampToValueAtTime(amp,now+attack);gain.gain.setValueAtTime(amp,Math.max(now+attack+.001,end-.025));gain.gain.exponentialRampToValueAtTime(.0001,end+.02);osc.connect(gain);gain.connect(master);osc.start(now);osc.stop(end+.025);voices.push(osc);osc.onended=()=>{voices=voices.filter(v=>v!==osc);osc.disconnect();gain.disconnect()}}
-new ResizeObserver(()=>{if(pianoMode)pSize()}).observe($('psurface'));
-
-load();$('vol-label').textContent=$('volume').value+'%';equation();new ResizeObserver(resize).observe(c);resize();document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)stop()});
-})();
-</script></body></html>
+<div id="sheet" hidden>
+  <div id="sheetBackdrop"></div>
+  <div id="sheetPanel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-head"><h2 id="sheetTitle"></h2><button id="sheetClose" class="icon" aria-label="Закрити">✕</button></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+<input id="fileInput" type="file" accept="application/json,.json" hidden>
+<noscript>Для роботи Draw Your Sound потрібен JavaScript.</noscript>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
