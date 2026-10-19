@@ -46,7 +46,7 @@ function undoPiano(){if(!pianoHistory.length){$('status').textContent='Нема�
 function pSize(){let r=pc.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);pc.width=Math.max(1,Math.round(r.width*d));pc.height=Math.max(1,Math.round(r.height*d));drawPiano()}
 function pGeometry(){let r=pc.getBoundingClientRect(),w=r.width,h=r.height,rows=Math.max(1,Math.ceil(h/rowH));return{w,h,left:48,rows,scale:Math.max(1,w-48)*pZoom/dur(),offset:pOffset,base:pScrollBase}}
 function pXY(n,b){return{x:b.left+(n.x*dur()-b.offset)*b.scale,y:(b.base+b.rows-1-n.midi)*rowH,w:n.len*dur()*b.scale}}
-function pGrid(){let k=+$('psnap').value;return k?1/k:0}
+function pGrid(){let k=+$('psnap').value;return k?(2/k)/dur():0}
 function pSnap(x){let step=pGrid();return clamp(step?Math.round(x/step)*step:x,0,1)}
 function pMinLen(){return pGrid()||.0125}
 function drawPiano(){
@@ -79,7 +79,7 @@ pc.addEventListener('pointerdown',e=>{
  let i=pHit(p);
  if(pTool==='copy'){if(i>=0){pCopy={...notes[i]};pSelected=i;$('phelp').textContent='Торкнися порожнього місця для копії'}else if(pCopy){rememberPiano();notes.push({...pCopy,x:clamp(pSnap(p.x),0,1-pCopy.len),midi:p.midi});pSelected=notes.length-1;changed()}drawPiano();return}
  if(pTool==='delete'){if(i>=0){rememberPiano();notes.splice(i,1);pSelected=-1;changed()}return}
- if(i>=0){pSelected=i;let n=notes[i],q=pXY(n,b),edge=Math.max(10,Math.min(18,q.w*.28)),resize=pTool==='draw'&&p.px>=q.x+q.w-edge;
+ if(i>=0){pSelected=i;let n=notes[i],q=pXY(n,b),edge=Math.max(8,Math.min(14,q.w*.22)),resize=pTool==='draw'&&q.w>=24&&p.px>=q.x+q.w-edge;
  rememberPiano();pDrag=resize?{kind:'resize',i}:{kind:'move',i,dx:p.x-n.x,dm:p.midi-n.midi};}
  else if(pTool==='draw'){rememberPiano();pSelected=-1;let x=pSnap(p.x);pDraft={x:clamp(x,0,1-pMinLen()),len:pMinLen(),midi:p.midi};pDrag={kind:'draw',start:x}}
  drawPiano()
@@ -91,7 +91,7 @@ pc.addEventListener('pointermove',e=>{if(pPointer!==e.pointerId||!pDrag)return;e
  drawPiano()
 });
 function pEnd(e){if(pPointer!==e.pointerId)return;pPointer=null;if(pDraft){notes.push({...pDraft});pSelected=notes.length-1;pDraft=null}pDrag=null;changed()}
-pc.addEventListener('pointerup',pEnd);pc.addEventListener('pointercancel',e=>{if(pPointer!==e.pointerId)return;pPointer=null;pDraft=null;pDrag=null;undoPiano()});
+pc.addEventListener('pointerup',pEnd);pc.addEventListener('pointercancel',e=>{if(pPointer!==e.pointerId)return;pPointer=null;let edited=!!pDrag;pDraft=null;pDrag=null;if(edited)undoPiano();else drawPiano()});
 $('viewtoggle').onclick=()=>{pianoMode=!pianoMode;$('piano').hidden=!pianoMode;c.style.visibility=pianoMode?'hidden':'visible';$('viewtoggle').textContent=pianoMode?'Canvas':'Piano Roll';$('drawer').hidden=true;if(pianoMode)requestAnimationFrame(pSize);else draw()};
 [['pdraw','draw'],['pmove','move'],['pcopy','copy'],['pdelete','delete']].forEach(([id,k])=>$(id).onclick=()=>pMode(k));
 function setZoom(z){pZoom=clamp(z,1,16);pOffset=Math.min(pOffset,dur()*(1-1/pZoom));$('ptime').value=100*pOffset/Math.max(.001,dur()*(1-1/pZoom));drawPiano()}
