@@ -30,31 +30,80 @@ function schedule(){if(!playing)return;let cycle=Math.floor((ctx.currentTime-sta
 function animate(){if(!playing)return;draw();if(pianoMode)drawPiano();raf=requestAnimationFrame(animate)}
 function stop(){playing=false;clearInterval(interval);cancelAnimationFrame(raf);voices.forEach(o=>{try{o.stop()}catch(e){}});voices=[];$('play').textContent='▶ Play';draw()}
 $('play').onclick=async()=>{if(playing){stop();return}if(!audio())return;try{await ctx.resume();playing=true;started=ctx.currentTime+.06;scheduledCycle=0;interval=setInterval(schedule,25);$('play').textContent='■ Stop';animate()}catch(e){$('status').textContent='Не вдалося запустити аудіо: '+e.message}};
-$('undo').onclick=()=>{lines.pop();brushes.pop();shapeModes.pop();changed()};function clear(){if(!confirm('Очистити всі намальовані доріжки?'))return;stop();lines=[];brushes=[];shapeModes=[];changed()}$('erase').onclick=clear;$('clear').onclick=clear;
+$('undo').onclick=()=>{if(pianoMode){undoPiano();return}lines.pop();brushes.pop();shapeModes.pop();changed()};function clear(){if(!confirm('Очистити всі доріжки та ноти?'))return;stop();rememberPiano();lines=[];notes=[];brushes=[];shapeModes=[];pSelected=-1;changed()}$('erase').onclick=clear;$('clear').onclick=clear;
 function demo(){stop();lines=[[[0,55],[.2,55],[.24,82],[.48,82],[.52,55],[.75,55],[.96,110]],[[.08,220],[.28,330],[.52,440],[.75,660],[.96,440]],[[.1,880],[.35,1760],[.7,1320],[.95,3520]]].map(l=>l.map(([x,f])=>({x,y:fy(f)})));brushes=['bass','lead','pad'];shapeModes=['natural','natural','natural'];changed();$('drawer').hidden=true} $('example').onclick=demo;$('demo').onclick=demo;
 $('settings').onclick=()=>{$('drawer').hidden=!$('drawer').hidden};$('close').onclick=()=>{$('drawer').hidden=true};$('duration').onchange=()=>{stop();changed()};$('wave').onchange=save;['brush','shape','direction','snap'].forEach(id=>$(id).onchange=save);$('volume').oninput=()=>{$('vol-label').textContent=$('volume').value+'%';if(ctx)master.gain.setTargetAtTime(db(),ctx.currentTime,.02);save()};
 const sliders=$('sliders');[['bass','Глибина басу'],['drive','Насичення'],['delay','Delay']].forEach(([k,name])=>{let row=document.createElement('div');row.className='sliderline';row.innerHTML='<span>'+name+'</span><input type="range" min="0" max="100" value="'+params[k]+'"><span>'+params[k]+'%</span>';sliders.appendChild(row);let input=row.querySelector('input');input.oninput=()=>{params[k]=+input.value;row.lastElementChild.textContent=params[k]+'%';if(k==='delay'&&ctx)wet.gain.setTargetAtTime(params[k]/200,ctx.currentTime,.02);save()}});
 $('export').onclick=()=>{let data=JSON.stringify({version:3,lines,notes,brushes,shapeModes,brush:$('brush').value,shape:$('shape').value,direction:$('direction').value,snap:$('snap').checked,params,wave:$('wave').value,duration:dur(),volume:+$('volume').value},null,2);let url=URL.createObjectURL(new Blob([data],{type:'application/json'}));let a=document.createElement('a');a.href=url;a.download='draw-your-sound.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let o=JSON.parse(await f.text());if(!Array.isArray(o.lines))throw Error('Некоректний формат');stop();lines=o.lines.slice(0,80).map(l=>l.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>({x:clamp(p.x,0,1),y:clamp(p.y,0,1)})).sort((a,b)=>a.x-b.x)).filter(l=>l.length>1);notes=Array.isArray(o.notes)?o.notes.filter(n=>Number.isFinite(n.x)&&Number.isFinite(n.len)&&Number.isFinite(n.midi)).slice(0,500).map(n=>({x:clamp(n.x,0,1),len:clamp(n.len,.002,1),midi:clamp(Math.round(n.midi),24,108)})):[];brushes=Array.isArray(o.brushes)?o.brushes.slice(0,lines.length):lines.map(()=>'lead');shapeModes=Array.isArray(o.shapeModes)?o.shapeModes.slice(0,lines.length):lines.map(()=>'natural');changed();$('drawer').hidden=true}catch(err){$('status').textContent='Помилка імпорту: '+err.message}e.target.value=''};
+$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let o=JSON.parse(await f.text());if(!Array.isArray(o.lines))throw Error('Некоректний формат');stop();rememberPiano();lines=o.lines.slice(0,80).map(l=>l.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>({x:clamp(p.x,0,1),y:clamp(p.y,0,1)})).sort((a,b)=>a.x-b.x)).filter(l=>l.length>1);notes=Array.isArray(o.notes)?o.notes.filter(n=>Number.isFinite(n.x)&&Number.isFinite(n.len)&&Number.isFinite(n.midi)).slice(0,500).map(n=>({x:clamp(n.x,0,1),len:clamp(n.len,.002,1),midi:clamp(Math.round(n.midi),24,108)})):[];brushes=Array.isArray(o.brushes)?o.brushes.slice(0,lines.length):lines.map(()=>'lead');shapeModes=Array.isArray(o.shapeModes)?o.shapeModes.slice(0,lines.length):lines.map(()=>'natural');changed();$('drawer').hidden=true}catch(err){$('status').textContent='Помилка імпорту: '+err.message}e.target.value=''};
 
-const pc=$('pcanvas'),pg=pc.getContext('2d'),rowH=19,loMidi=36,hiMidi=96;
+
+const pc=$('pcanvas'),pg=pc.getContext('2d'),rowH=28,loMidi=24,hiMidi=108;
+let pianoHistory=[],pDrag=null,pCopy=null,pScrollBase=48;
+const cloneNotes=()=>notes.map(n=>({...n}));
+function rememberPiano(){pianoHistory.push(cloneNotes());if(pianoHistory.length>70)pianoHistory.shift()}
+function undoPiano(){if(!pianoHistory.length){$('status').textContent='Немає змін Piano Roll для скасування';return}notes=pianoHistory.pop();pSelected=-1;pCopy=null;changed()}
 function pSize(){let r=pc.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);pc.width=Math.max(1,Math.round(r.width*d));pc.height=Math.max(1,Math.round(r.height*d));drawPiano()}
-function pGeometry(){let r=pc.getBoundingClientRect(),w=r.width,h=r.height;return{w,h,left:43,visible:dur()/pZoom,scale:(w-43)*pZoom/dur(),offset:pOffset,base:loMidi+pScroll,rows:Math.ceil(h/rowH)}}
+function pGeometry(){let r=pc.getBoundingClientRect(),w=r.width,h=r.height,rows=Math.max(1,Math.ceil(h/rowH));return{w,h,left:48,rows,scale:Math.max(1,w-48)*pZoom/dur(),offset:pOffset,base:pScrollBase}}
 function pXY(n,b){return{x:b.left+(n.x*dur()-b.offset)*b.scale,y:(b.base+b.rows-1-n.midi)*rowH,w:n.len*dur()*b.scale}}
-function drawPiano(){if(!pianoMode)return;let b=pGeometry(),d=pc.width/Math.max(1,b.w);pg.setTransform(d,0,0,d,0,0);pg.fillStyle='#08121e';pg.fillRect(0,0,b.w,b.h);pg.font='10px system-ui';let grid=dur()/($('psnap').value==='0'?16:+$('psnap').value);for(let midi=b.base;midi<=b.base+b.rows;midi++){let y=(b.base+b.rows-1-midi)*rowH;pg.fillStyle=midi%12===0?'#243c50':(midi%12===1||midi%12===3||midi%12===6||midi%12===8||midi%12===10)?'#0d1b2a':'#122638';pg.fillRect(0,y,b.w,rowH-1);pg.fillStyle='#a6c2d5';if(midi%12===0)pg.fillText('C'+(Math.floor(midi/12)-1),5,y+13)}for(let t=0;t<=dur()+.0001;t+=grid){let x=b.left+(t-b.offset)*b.scale;if(x>b.w)break;if(x<b.left)continue;pg.strokeStyle=Math.abs(t% (dur()/4))<.001?'#506b83':'#294156';pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,b.h);pg.stroke()}notes.forEach((n,i)=>{let q=pXY(n,b);if(q.x+q.w<b.left||q.x>b.w||q.y+rowH<0||q.y>b.h)return;pg.fillStyle=i===pSelected?'#ffce82':'#52cfba';pg.fillRect(q.x,q.y+2,Math.max(2,q.w-1),rowH-4);pg.fillStyle='#0c2430';if(q.w>28)pg.fillText(['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n.midi%12],q.x+4,q.y+14)});if(pDraft){let q=pXY(pDraft,b);pg.fillStyle='#80aaffaa';pg.fillRect(q.x,q.y+2,Math.max(3,q.w),rowH-4)}if(playing&&ctx){let t=((ctx.currentTime-started)%dur()+dur())%dur(),x=b.left+(t-b.offset)*b.scale;pg.strokeStyle='#ffe4a0';pg.lineWidth=2;pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,b.h);pg.stroke()}}
-function pPoint(e){let b=pGeometry(),r=pc.getBoundingClientRect(),x=clamp(((e.clientX-r.left-b.left)/b.scale+b.offset)/dur(),0,1),midi=clamp(Math.floor(b.base+b.rows-1-(e.clientY-r.top)/rowH),loMidi,hiMidi);return{x,midi}}
-function pSnap(x){let k=+$('psnap').value;return k?clamp(Math.round(x*k)/k,0,1):clamp(x,0,1)}
-function pHit(p){for(let i=notes.length-1;i>=0;i--){let n=notes[i];if(p.midi===n.midi&&p.x>=n.x-.003&&p.x<=n.x+n.len+.003)return i}return -1}
-function pMode(v){pTool=v;for(let [id,k] of [['pdraw','draw'],['pmove','move'],['pcopy','copy'],['pdelete','delete']])$(id).classList.toggle('selected',k===v);$('phelp').textContent={draw:'Торкнися й тягни — довжина ноти',move:'Перетягни ноту в інше місце',copy:'Торкнися ноти, потім місця для копії',delete:'Торкнися ноти для видалення'}[v]}
-let pDrag=null,pCopy=null;
-pc.addEventListener('pointerdown',e=>{if(pPointer!==null)return;e.preventDefault();pPointer=e.pointerId;pc.setPointerCapture(pPointer);let p=pPoint(e),i=pHit(p);if(pTool==='draw'){if(i>=0){pSelected=i;pDrag={kind:'resize',i,original:notes[i].len};}else{pSelected=-1;pDraft={x:pSnap(p.x),len:Math.max(.01,1/(+$('psnap').value||32)),midi:p.midi};pDrag={kind:'draw',start:pDraft.x}}}else if(pTool==='move'){if(i>=0){pSelected=i;pDrag={kind:'move',i,dx:p.x-notes[i].x,dm:p.midi-notes[i].midi}}}else if(pTool==='copy'){if(i>=0){pCopy={...notes[i]};pSelected=i;$('phelp').textContent='Торкнися нового місця, щоб вставити копію';}else if(pCopy){let n={...pCopy,x:clamp(pSnap(p.x),0,1-pCopy.len),midi:p.midi};notes.push(n);pSelected=notes.length-1;changed()}}else if(pTool==='delete'&&i>=0){notes.splice(i,1);pSelected=-1;changed()}drawPiano()});
-pc.addEventListener('pointermove',e=>{if(pPointer!==e.pointerId||!pDrag)return;e.preventDefault();let p=pPoint(e);if(pDrag.kind==='draw'){let a=pDrag.start,x=pSnap(p.x);pDraft.x=Math.min(a,x);pDraft.len=Math.max(.01,Math.abs(x-a))}else if(pDrag.kind==='move'){let n=notes[pDrag.i];n.x=clamp(pSnap(p.x-pDrag.dx),0,1-n.len);n.midi=clamp(p.midi-pDrag.dm,loMidi,hiMidi)}else if(pDrag.kind==='resize'){let n=notes[pDrag.i];n.len=clamp(pSnap(p.x)-n.x,.01,1-n.x)}drawPiano()});
+function pGrid(){let k=+$('psnap').value;return k?1/k:0}
+function pSnap(x){let step=pGrid();return clamp(step?Math.round(x/step)*step:x,0,1)}
+function pMinLen(){return pGrid()||.0125}
+function drawPiano(){
+ if(!pianoMode)return;
+ let b=pGeometry(),d=pc.width/Math.max(1,b.w);pg.setTransform(d,0,0,d,0,0);pg.clearRect(0,0,b.w,b.h);pg.fillStyle='#08121e';pg.fillRect(0,0,b.w,b.h);
+ pg.font='12px system-ui';
+ for(let midi=b.base;midi<b.base+b.rows;midi++){let y=(b.base+b.rows-1-midi)*rowH;if(y>=b.h||y+rowH<=0)continue;
+ let black=[1,3,6,8,10].includes(midi%12);pg.fillStyle=midi%12===0?'#253e54':black?'#101d2b':'#192d3f';pg.fillRect(0,y,b.w,rowH-1);
+ pg.fillStyle='#c0d2df';if(midi%12===0)pg.fillText('C'+(Math.floor(midi/12)-1),5,y+18);
+ }
+ let step=pGrid()||1/32;
+ for(let k=0;k<=Math.ceil(1/step);k++){let t=k*step*dur(),x=b.left+(t-b.offset)*b.scale;if(x>b.w)break;if(x<b.left)continue;pg.strokeStyle=k%4===0?'#678095':'#2b4356';pg.lineWidth=k%4===0?1.1:.6;pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,b.h);pg.stroke()}
+ pg.save();pg.beginPath();pg.rect(b.left,0,Math.max(0,b.w-b.left),b.h);pg.clip();
+ notes.forEach((n,i)=>{let q=pXY(n,b);if(q.x+q.w<b.left||q.x>b.w||q.y+rowH<0||q.y>b.h)return;
+ pg.fillStyle=i===pSelected?'#ffcb80':'#51d1b5';pg.fillRect(q.x,q.y+2,Math.max(3,q.w-1),rowH-4);
+ pg.fillStyle='#12303b';pg.fillRect(q.x+Math.max(0,q.w-7),q.y+5,Math.min(4,q.w),rowH-10);
+ pg.fillStyle='#102d35';if(q.w>32)pg.fillText(['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n.midi%12],q.x+5,q.y+18)});
+ if(pDraft){let q=pXY(pDraft,b);pg.fillStyle='#83b7ffbb';pg.fillRect(q.x,q.y+2,Math.max(4,q.w),rowH-4)}
+ if(playing&&ctx){let t=((ctx.currentTime-started)%dur()+dur())%dur(),x=b.left+(t-b.offset)*b.scale;pg.strokeStyle='#ffe7a0';pg.lineWidth=2;pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,b.h);pg.stroke()}
+ pg.restore();
+ pg.fillStyle='#13283a';pg.fillRect(0,0,b.left,b.h);
+ for(let midi=b.base;midi<b.base+b.rows;midi++){let y=(b.base+b.rows-1-midi)*rowH;pg.fillStyle=[1,3,6,8,10].includes(midi%12)?'#223449':'#40556a';pg.fillRect(0,y,b.left-2,rowH-1);pg.fillStyle='#f1f5fa';pg.font='11px system-ui';pg.fillText(['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][midi%12]+(Math.floor(midi/12)-1),4,y+18)}
+}
+function pPoint(e){let b=pGeometry(),r=pc.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;return{px,py,x:clamp(((px-b.left)/b.scale+b.offset)/dur(),0,1),midi:clamp(Math.floor(b.base+b.rows-1-py/rowH),loMidi,hiMidi)}}
+function pHit(p){let b=pGeometry(),best=-1,score=Infinity;for(let i=notes.length-1;i>=0;i--){let q=pXY(notes[i],b),dx=Math.max(q.x-p.px,0,p.px-(q.x+Math.max(q.w,8))),dy=Math.max(q.y+2-p.py,0,p.py-(q.y+rowH-2)),dist=Math.hypot(dx,dy);if(dist<score&&dist<=(pTool==='draw'?7:15)){score=dist;best=i}}return best}
+function pMode(v){pTool=v;pCopy=null;for(let [id,k] of [['pdraw','draw'],['pmove','move'],['pcopy','copy'],['pdelete','delete']])$(id).classList.toggle('selected',k===v);$('phelp').textContent={draw:'Порожнє місце: нова нота · нота: перемісти · край: довжина',move:'Перетягни ноту в інше місце',copy:'Торкнися ноти, потім місця для копії',delete:'Торкнися ноти для видалення'}[v]}
+pc.addEventListener('pointerdown',e=>{
+ if(pPointer!==null||!e.isPrimary)return;let p=pPoint(e),b=pGeometry();if(p.px<b.left)return;
+ e.preventDefault();pPointer=e.pointerId;try{pc.setPointerCapture(pPointer)}catch(_){}
+ let i=pHit(p);
+ if(pTool==='copy'){if(i>=0){pCopy={...notes[i]};pSelected=i;$('phelp').textContent='Торкнися порожнього місця для копії'}else if(pCopy){rememberPiano();notes.push({...pCopy,x:clamp(pSnap(p.x),0,1-pCopy.len),midi:p.midi});pSelected=notes.length-1;changed()}drawPiano();return}
+ if(pTool==='delete'){if(i>=0){rememberPiano();notes.splice(i,1);pSelected=-1;changed()}return}
+ if(i>=0){pSelected=i;let n=notes[i],q=pXY(n,b),edge=Math.max(10,Math.min(18,q.w*.28)),resize=pTool==='draw'&&p.px>=q.x+q.w-edge;
+ rememberPiano();pDrag=resize?{kind:'resize',i}:{kind:'move',i,dx:p.x-n.x,dm:p.midi-n.midi};}
+ else if(pTool==='draw'){rememberPiano();pSelected=-1;let x=pSnap(p.x);pDraft={x:clamp(x,0,1-pMinLen()),len:pMinLen(),midi:p.midi};pDrag={kind:'draw',start:x}}
+ drawPiano()
+});
+pc.addEventListener('pointermove',e=>{if(pPointer!==e.pointerId||!pDrag)return;e.preventDefault();let p=pPoint(e);
+ if(pDrag.kind==='draw'){let x=pSnap(p.x),start=pDrag.start,lo=Math.min(start,x),hi=Math.max(start,x);pDraft.x=clamp(lo,0,1-pMinLen());pDraft.len=clamp(Math.max(pMinLen(),hi-lo),pMinLen(),1-pDraft.x)}
+ else if(pDrag.kind==='move'){let n=notes[pDrag.i];n.x=clamp(pSnap(p.x-pDrag.dx),0,1-n.len);n.midi=clamp(p.midi-pDrag.dm,loMidi,hiMidi)}
+ else if(pDrag.kind==='resize'){let n=notes[pDrag.i];n.len=clamp(Math.max(pMinLen(),pSnap(p.x)-n.x),pMinLen(),1-n.x)}
+ drawPiano()
+});
 function pEnd(e){if(pPointer!==e.pointerId)return;pPointer=null;if(pDraft){notes.push({...pDraft});pSelected=notes.length-1;pDraft=null}pDrag=null;changed()}
-pc.addEventListener('pointerup',pEnd);pc.addEventListener('pointercancel',e=>{pPointer=null;pDraft=null;pDrag=null;drawPiano()});
+pc.addEventListener('pointerup',pEnd);pc.addEventListener('pointercancel',e=>{if(pPointer!==e.pointerId)return;pPointer=null;pDraft=null;pDrag=null;undoPiano()});
 $('viewtoggle').onclick=()=>{pianoMode=!pianoMode;$('piano').hidden=!pianoMode;c.style.visibility=pianoMode?'hidden':'visible';$('viewtoggle').textContent=pianoMode?'Canvas':'Piano Roll';$('drawer').hidden=true;if(pianoMode)requestAnimationFrame(pSize);else draw()};
 [['pdraw','draw'],['pmove','move'],['pcopy','copy'],['pdelete','delete']].forEach(([id,k])=>$(id).onclick=()=>pMode(k));
-$('zin').onclick=()=>{pZoom=Math.min(16,pZoom*2);pOffset=Math.min(pOffset,dur()*(1-1/pZoom));drawPiano()};$('zout').onclick=()=>{pZoom=Math.max(1,pZoom/2);pOffset=Math.min(pOffset,dur()*(1-1/pZoom));drawPiano()};$('ptime').oninput=()=>{pOffset=(+$('ptime').value/100)*dur()*(1-1/pZoom);drawPiano()};$('octup').onclick=()=>{pScroll=Math.min(hiMidi-loMidi-12,pScroll+12);drawPiano()};$('octdown').onclick=()=>{pScroll=Math.max(0,pScroll-12);drawPiano()};$('psnap').onchange=drawPiano;
-function noteVoice(n,base){let start=base+n.x*dur(),end=base+(n.x+n.len)*dur();if(end<=ctx.currentTime+.01)return;let now=Math.max(ctx.currentTime+.006,start),osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=$('wave').value;osc.frequency.value=440*Math.pow(2,(n.midi-69)/12);let amp=.13/Math.sqrt(Math.max(1,notes.length));gain.gain.setValueAtTime(.0001,now);gain.gain.linearRampToValueAtTime(amp,now+.008);gain.gain.setValueAtTime(amp,Math.max(now+.009,end-.025));gain.gain.exponentialRampToValueAtTime(.0001,end+.02);osc.connect(gain);gain.connect(master);osc.start(now);osc.stop(end+.025);voices.push(osc);osc.onended=()=>{voices=voices.filter(v=>v!==osc);osc.disconnect();gain.disconnect()}}
+function setZoom(z){pZoom=clamp(z,1,16);pOffset=Math.min(pOffset,dur()*(1-1/pZoom));$('ptime').value=100*pOffset/Math.max(.001,dur()*(1-1/pZoom));drawPiano()}
+$('zin').onclick=()=>setZoom(pZoom*2);$('zout').onclick=()=>setZoom(pZoom/2);
+$('ptime').oninput=()=>{pOffset=(+$('ptime').value/100)*dur()*(1-1/pZoom);drawPiano()};
+$('octup').onclick=()=>{pScrollBase=clamp(pScrollBase+12,loMidi,hiMidi-12);drawPiano()};
+$('octdown').onclick=()=>{pScrollBase=clamp(pScrollBase-12,loMidi,hiMidi-12);drawPiano()};
+$('psnap').onchange=drawPiano;
+pc.addEventListener('wheel',e=>{if(!pianoMode)return;e.preventDefault();if(e.ctrlKey||e.metaKey){setZoom(pZoom*(e.deltaY<0?1.25:.8))}else if(e.shiftKey){pOffset=clamp(pOffset+e.deltaY/bScale(),0,dur()*(1-1/pZoom));$('ptime').value=100*pOffset/Math.max(.001,dur()*(1-1/pZoom));drawPiano()}else{pScrollBase=clamp(pScrollBase+(e.deltaY>0?-1:1),loMidi,hiMidi-12);drawPiano()}},{passive:false});
+function bScale(){return pGeometry().scale}
+document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();if(pianoMode)undoPiano();else $('undo').click()}else if(pianoMode&&(e.key==='Delete'||e.key==='Backspace')&&pSelected>=0){e.preventDefault();rememberPiano();notes.splice(pSelected,1);pSelected=-1;changed()}});
+function noteVoice(n,base){let start=base+n.x*dur(),end=base+(n.x+n.len)*dur();if(end<=ctx.currentTime+.01)return;let now=Math.max(ctx.currentTime+.006,start),osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=$('wave').value;osc.frequency.value=440*Math.pow(2,(n.midi-69)/12);let amp=.13/Math.sqrt(Math.max(1,notes.length)),attack=Math.min(.008,Math.max(.001,(end-now)/3));gain.gain.setValueAtTime(.0001,now);gain.gain.linearRampToValueAtTime(amp,now+attack);gain.gain.setValueAtTime(amp,Math.max(now+attack+.001,end-.025));gain.gain.exponentialRampToValueAtTime(.0001,end+.02);osc.connect(gain);gain.connect(master);osc.start(now);osc.stop(end+.025);voices.push(osc);osc.onended=()=>{voices=voices.filter(v=>v!==osc);osc.disconnect();gain.disconnect()}}
 new ResizeObserver(()=>{if(pianoMode)pSize()}).observe($('psurface'));
 
 load();$('vol-label').textContent=$('volume').value+'%';equation();new ResizeObserver(resize).observe(c);resize();document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)stop()});
